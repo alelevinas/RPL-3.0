@@ -22,6 +22,7 @@ class ActivitySubmission(Base):
     user_id: Mapped[BigInt]
     solution_rplfile_id: Mapped[BigInt] = mapped_column(ForeignKey("rpl_files.id"))
     status: Mapped[Str]
+    ai_hint: Mapped[Optional[Str]]
     date_created: Mapped[AutoDateTime]
     last_updated: Mapped[AutoDateTime]
 

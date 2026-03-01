@@ -12,18 +12,24 @@ from rpl_activities.src.dtos.submission_dtos import (
     TestsExecutionLogDTO,
     SubmissionWithMetadataOnlyResponseDTO,
 )
-from rpl_activities.src.repositories.activity_tests import TestsRepository
 from rpl_activities.src.repositories.submissions import SubmissionsRepository
-from rpl_activities.src.repositories.models import aux_models
+from rpl_activities.src.repositories.tests import TestsRepository
+from rpl_activities.src.repositories.common_mistakes import CommonMistakesRepository
 from rpl_activities.src.repositories.models.activity_submission import ActivitySubmission
+from rpl_activities.src.repositories.models import aux_models
 from rpl_activities.src.services.activities import ActivitiesService
+from rpl_activities.src.services.ai_hints import AIHintsService
+from rpl_activities.src.shared.mistake_matcher import MistakeMatcher
 
 
 class SubmissionsService:
     def __init__(self, db_session, mq_sender: MQSender | None = None):
         self.submissions_repo = SubmissionsRepository(db_session)
         self.tests_repo = TestsRepository(db_session)
+        self.common_mistakes_repo = CommonMistakesRepository(db_session)
         self.activities_service = ActivitiesService(db_session)
+        self.ai_hints_service = AIHintsService()
+        self.mistake_matcher = MistakeMatcher()
         self.mq_sender = mq_sender
 
     def __build_submission_response(self, submission: ActivitySubmission) -> SubmissionResponseDTO:
@@ -57,6 +63,7 @@ class SubmissionsService:
             activity_starting_rplfile_id=submission.activity.starting_rplfile_id,
             activity_language=submission.activity.language,
             is_io_tested=submission.activity.is_io_tested,
+            ai_hint=submission.ai_hint,
         )
 
     def __build_submission_result_response(
@@ -86,6 +93,7 @@ class SubmissionsService:
             submission_status=submission.status,
             is_final_solution=submission.is_final_solution,
             submission_date=submission.date_created,
+            ai_hint=submission.ai_hint,
             exit_message=submission_tests_exit_msg,
             stderr=tests_log_stderr,
             stdout=tests_log_stdout,
@@ -247,20 +255,48 @@ class SubmissionsService:
                     new_execution_log_data.tests_execution_stage
                 ),
             )
-            return
+        else:
+            passed_all_tests = False
+            if submission.activity.is_io_tested:
+                passed_all_tests = self.tests_repo.save_io_test_runs_from_exec_log_and_check_if_all_passed(
+                    submission.activity.io_tests, test_execution_log.id, new_execution_log_data
+                )
+            elif submission.activity.unit_test_suite:
+                passed_all_tests = self.tests_repo.save_unit_test_runs_from_exec_log_and_check_if_all_passed(
+                    test_execution_log.id, new_execution_log_data
+                )
+            self.__set_submission_status_according_to_tests_exec_log(
+                submission, new_execution_log_data, passed_all_tests
+            )
 
-        passed_all_tests = False
-        if submission.activity.is_io_tested:
-            passed_all_tests = self.tests_repo.save_io_test_runs_from_exec_log_and_check_if_all_passed(
-                submission.activity.io_tests, test_execution_log.id, new_execution_log_data
-            )
-        elif submission.activity.unit_test_suite:
-            passed_all_tests = self.tests_repo.save_unit_test_runs_from_exec_log_and_check_if_all_passed(
-                test_execution_log.id, new_execution_log_data
-            )
-        self.__set_submission_status_according_to_tests_exec_log(
-            submission, new_execution_log_data, passed_all_tests
-        )
+        # AI and Common Mistake Hint Generation
+        if submission.status != aux_models.SubmissionStatus.SUCCESS:
+            error_content = new_execution_log_data.tests_execution_stderr or new_execution_log_data.tests_execution_exit_message
+            if error_content:
+                # 1. Match against Common Mistake Patterns from DB
+                db_patterns = self.common_mistakes_repo.get_all_for_language(submission.activity.language)
+                common_mistakes = self.mistake_matcher.match(
+                    language=submission.activity.language,
+                    output=error_content,
+                    exit_code=new_execution_log_data.tests_execution_exit_code,
+                    custom_patterns=db_patterns
+                )
+                
+                hints = [m["hint"] for m in common_mistakes]
+                
+                # 2. Generate AI Hint if needed or to augment
+                ai_hint = self.ai_hints_service.generate_hint(
+                    language=submission.activity.language,
+                    error_output=error_content,
+                    activity_description=submission.activity.description
+                )
+                
+                if ai_hint:
+                    hints.append(ai_hint)
+                
+                if hints:
+                    final_hint = " ".join(hints)
+                    self.submissions_repo.update_submission_ai_hint(submission, final_hint)
 
     def reprocess_all_pending_submissions(
         self, current_user: CurrentMainUser

@@ -1,56 +1,39 @@
 import logging
 from typing import Annotated
 from fastapi import Depends
-import pika
-import pika.exceptions
+from celery import Celery
 from rpl_activities.src.config import env
 from fastapi import HTTPException, status
 
-MSG_TTL = 3600000  # 1 hour in ms
-
 class MQSender:
     def __init__(self):
-        self.connection = pika.BlockingConnection(
-            [pika.URLParameters(env.QUEUE_URL)]
-        )
-        self.channel = self.connection.channel()
-        self.channel.queue_declare(queue="hello", durable=True, arguments={"x-message-ttl": MSG_TTL})
+        self.celery_app = Celery("rpl_runner", broker=env.QUEUE_URL)
 
     def send_submission(self, submission_id: int, language_with_version: str):
         message = f"{submission_id} {language_with_version}"
-        self.channel.basic_publish(
-            exchange="",
-            routing_key="hello",
-            body=message,
-            properties=pika.BasicProperties(delivery_mode=pika.DeliveryMode.Persistent),
-        )
+        try:
+            # We use send_task because the consumer (runner) is in a different codebase/environment
+            # The task name 'process_submission' must match @app.task(name='process_submission') in runner
+            self.celery_app.send_task("process_submission", args=[message])
+            logging.info(f"Successfully enqueued submission {submission_id} via Celery")
+        except Exception as e:
+            logging.error(f"Failed to enqueue submission {submission_id} via Celery: {e}")
+            raise e
 
     def close(self):
-        if self.connection.is_open:
-            self.connection.close()
-        self.channel = None
-        self.connection = None
+        # Celery connection is managed by the app instance
+        pass
 
 
 def get_mq_sender():
     try:
         mq_sender = MQSender()
         yield mq_sender
-        if mq_sender and mq_sender.connection.is_open:
-            mq_sender.close()
-    except pika.exceptions.AMQPError as e:
-        logging.error(f"Failed to connect to MQ: {e}")
+    except Exception as e:
+        logging.error(f"Failed to connect to MQ via Celery: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
             detail="Message Queue service is currently unavailable. Wait a few seconds and try again."
-        )
-    except Exception as e:
-        logging.getLogger("uvicorn.error").error(
-            f"An error occurred while using MQSender: {e}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
-            detail="MQ service is currently unavailable. Wait a few seconds and try again."
         )
 
 

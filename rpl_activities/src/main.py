@@ -1,6 +1,15 @@
+import os
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+
+# Add root to sys.path to import shared
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
+from shared.logger import setup_logger
+
+log_path = os.path.join(os.path.dirname(__file__), "../../../../logs/activities.log")
+logger = setup_logger("rpl_activities", log_file=log_path)
 
 from rpl_activities.src.config.api_metadata import FASTAPI_METADATA
 from rpl_activities.src.config.api_lifespan import users_api_conn_lifespan
@@ -13,6 +22,10 @@ from rpl_activities.src.routers.stats import router as stats_router
 
 
 app = FastAPI(lifespan=users_api_conn_lifespan, **FASTAPI_METADATA)
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting RPL Activities API")
 
 
 app.add_middleware(

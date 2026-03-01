@@ -8,3 +8,4 @@ from .rpl_file import RPLFile
 from .test_execution_log import TestsExecutionLog
 from .unit_test_run import UnitTestRun
 from .unit_test_suite import UnitTestSuite
+from .common_mistakes import CommonMistake

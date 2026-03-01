@@ -214,6 +214,15 @@ class SubmissionsRepository(BaseRepository):
         self.db_session.refresh(submission)
         return submission
 
+    def update_submission_ai_hint(
+        self, submission: ActivitySubmission, ai_hint: str
+    ) -> ActivitySubmission:
+        submission.ai_hint = ai_hint
+        submission.last_updated = datetime.now(timezone.utc)
+        self.db_session.commit()
+        self.db_session.refresh(submission)
+        return submission
+
     def mark_submission_as_final_solution(self, submission: ActivitySubmission) -> ActivitySubmission:
         submission.is_final_solution = True
         submission.last_updated = datetime.now(timezone.utc)

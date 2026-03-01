@@ -51,6 +51,7 @@ class SubmissionResultResponseDTO(BaseModel):
     submission_status: aux_models.SubmissionStatus
     is_final_solution: bool
     submission_date: datetime
+    ai_hint: Optional[str] = None
     exit_message: Optional[str] = None
     stderr: str = ""
     stdout: str = ""
@@ -118,3 +119,4 @@ class SubmissionWithMetadataOnlyResponseDTO(BaseModel):
     activity_starting_rplfile_id: int
     activity_language: aux_models.LanguageWithVersion
     is_io_tested: bool
+    ai_hint: Optional[str] = None
