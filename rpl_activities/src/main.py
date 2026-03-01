@@ -1,8 +1,9 @@
 import os
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from shared.dtos import ErrorResponseDTO
 
 # Add root to sys.path to import shared
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
@@ -22,6 +23,23 @@ from rpl_activities.src.routers.stats import router as stats_router
 
 
 app = FastAPI(lifespan=users_api_conn_lifespan, **FASTAPI_METADATA)
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    error = ErrorResponseDTO(detail=str(exc.detail), error_code=f"HTTP_{exc.status_code}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error.model_dump(mode="json")
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    error = ErrorResponseDTO(detail="Internal Server Error", error_code="INTERNAL_ERROR")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=error.model_dump(mode="json")
+    )
 
 @app.on_event("startup")
 async def startup_event():
