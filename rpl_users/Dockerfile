@@ -1,18 +1,29 @@
+# Multi-stage Dockerfile for RPL-3.0 Users Service
+FROM python:3.13-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies if needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY base_requirements.txt extra_requirements.txt ./
+RUN pip install --user --no-cache-dir -r base_requirements.txt -r extra_requirements.txt
+
+# Final stage
 FROM python:3.13-slim
 
 WORKDIR /
 
-COPY ./base_requirements.txt /rpl_users/base_requirements.txt
-COPY ./rpl_users/extra_requirements.txt /rpl_users/extra_requirements.txt
+# Copy only installed packages from builder
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
 
-RUN pip install --no-cache-dir --upgrade -r /rpl_users/base_requirements.txt -r /rpl_users/extra_requirements.txt
-
+# Copy source code
 COPY ./rpl_users/src /rpl_users/src
 COPY ./rpl_users/__init__.py /rpl_users/__init__.py
 
-
-# For development
-# CMD ["uvicorn", "rpl_users.src.main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--reload-dir", "rpl_users/src", "--use-colors"]
+ENV PYTHONUNBUFFERED=1
 
 CMD ["uvicorn", "rpl_users.src.main:app", "--host", "0.0.0.0", "--port", "80", "--use-colors"]
-

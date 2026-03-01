@@ -285,9 +285,12 @@ class SubmissionsService:
                 hints = [m["hint"] for m in common_mistakes]
                 
                 # 2. Generate AI Hint if needed or to augment
+                # Limit error content to first 1000 characters to prevent token overflow
+                truncated_error = error_content[:1000] + ("..." if len(error_content) > 1000 else "")
+                
                 ai_hint = self.ai_hints_service.generate_hint(
                     language=submission.activity.language,
-                    error_output=error_content,
+                    error_output=truncated_error,
                     activity_description=submission.activity.description
                 )
                 

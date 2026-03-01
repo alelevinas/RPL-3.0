@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: rpl-activities-api
-        image: gcr.io/rpl2-fiuba/rpl-3.0-activities:latest #  rpl-activities-api:local
+        image: ghcr.io/rpl-3-0/rpl-3.0-activities:latest #  rpl-activities-api:local
         env:
         - name: FASTAPI_PRODUCTION_PROFILE
           value: "true"

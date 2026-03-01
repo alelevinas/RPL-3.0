@@ -1,6 +1,0 @@
-black==24.10.0
-flake8==7.1.1
-GitPython==3.1.41
-setuptools==69.0.3
-greenlet==3.1.1
-mypy-extensions==1.0.0
