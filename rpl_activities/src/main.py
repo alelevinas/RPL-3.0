@@ -1,15 +1,16 @@
 import os
 import sys
+
+# Add workspace root to sys.path to import shared
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.."))
+
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from shared.dtos import ErrorResponseDTO
-
-# Add root to sys.path to import shared
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../.."))
 from shared.logger import setup_logger
 
-log_path = os.path.join(os.path.dirname(__file__), "../../../../logs/activities.log")
+log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../logs/activities.log")
 logger = setup_logger("rpl_activities", log_file=log_path)
 
 from rpl_activities.src.config.api_metadata import FASTAPI_METADATA

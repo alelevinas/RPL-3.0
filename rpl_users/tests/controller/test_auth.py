@@ -91,6 +91,31 @@ def test_create_user_validation_errors(users_api_client: TestClient, test_name, 
     assert "too_short" or "value_error" in result["detail"][0]["type"]
 
 
+def test_login_unvalidated_email(users_api_client: TestClient, users_api_dbsession: Session):
+    unvalidated = User(
+        name="Unvalidated",
+        surname="User",
+        student_id="99999",
+        username="unvalidatedUser",
+        email="unvalidated@mail.com",
+        password="$2a$10$cQQj.LWxHGB/gaoZwH2ilOAgJabst84IMgJ363F.lmLNjh0D43ZhG",  # "secret"
+        university="FIUBA",
+        degree="Ing. Informatica",
+        email_validated=False,
+        is_admin=False,
+    )
+    users_api_dbsession.add(unvalidated)
+    users_api_dbsession.commit()
+
+    response = users_api_client.post(
+        "/api/v3/auth/login",
+        json={"username_or_email": "unvalidatedUser", "password": "secret"},
+    )
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert "Email not validated" in response.json()["detail"]
+
+
 def test_login_wrong_credentials(users_api_client: TestClient, example_users: dict[str, User]):
     login_data = {"username_or_email": "regularUsername", "password": "1"}
 

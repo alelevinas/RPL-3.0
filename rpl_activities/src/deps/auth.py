@@ -72,7 +72,7 @@ class CurrentCourseUser:
         self.permissions = user_data.permissions
 
     def has_authority(self, authority: str) -> bool:
-        return authority in self.permissions
+        return "all" in self.permissions or authority in self.permissions
 
 
 def __basic_request_param_checks(course_id: Optional[str]) -> int:

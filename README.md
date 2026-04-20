@@ -17,29 +17,32 @@ The RPL-3.0 backend consists of two primary microservices built with FastAPI and
 
 ### Local Development
 
+Requires `.env` files in `rpl_users/` and `rpl_activities/` — see the workspace [README](../README.md) for the full setup guide including infrastructure and DB seeding.
+
 1.  **Install dependencies:**
     ```bash
-    pip install -r base_requirements.txt -r rpl_activities/extra_requirements.txt -r rpl_users/extra_requirements.txt
+    pyenv exec pip install -r base_requirements.txt \
+      -r rpl_activities/extra_requirements.txt \
+      -r rpl_users/extra_requirements.txt
     ```
 
 2.  **Start Users API:**
     ```bash
-    uvicorn rpl_users.src.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir rpl_users/src
+    pyenv exec python -m dotenv -f rpl_users/.env run -- \
+      python -m uvicorn rpl_users.src.main:app \
+      --host 0.0.0.0 --port 8000 --reload --reload-dir rpl_users/src
     ```
 
 3.  **Start Activities API:**
     ```bash
-    uvicorn rpl_activities.src.main:app --host 0.0.0.0 --port 8001 --reload --reload-dir rpl_activities/src
+    pyenv exec python -m dotenv -f rpl_activities/.env run -- \
+      python -m uvicorn rpl_activities.src.main:app \
+      --host 0.0.0.0 --port 8001 --reload --reload-dir rpl_activities/src
     ```
 
-## Database Migrations
+## Database
 
-Use Alembic to manage database changes:
-
-```bash
-# In RPL-3.0/
-alembic upgrade head
-```
+Schema is managed via SQLAlchemy ORM models. On a fresh database, use `create_all()` (see workspace README). The legacy Alembic scripts under `migrations/` target an existing production database and should not be run on a fresh local setup.
 
 ## AI Hinting
 

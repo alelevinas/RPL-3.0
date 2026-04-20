@@ -13,7 +13,7 @@ from rpl_activities.src.dtos.submission_dtos import (
     SubmissionWithMetadataOnlyResponseDTO,
 )
 from rpl_activities.src.repositories.submissions import SubmissionsRepository
-from rpl_activities.src.repositories.tests import TestsRepository
+from rpl_activities.src.repositories.activity_tests import TestsRepository
 from rpl_activities.src.repositories.common_mistakes import CommonMistakesRepository
 from rpl_activities.src.repositories.models.activity_submission import ActivitySubmission
 from rpl_activities.src.repositories.models import aux_models
