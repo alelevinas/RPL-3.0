@@ -310,10 +310,9 @@ class SubmissionsService:
                 detail="Only admins can reprocess all pending submissions.",
             )
         pending_submissions = self.submissions_repo.get_all_pending_and_stuck_submissions()
-        enqueued_submissions = []
         for submission in pending_submissions:
             self.__post_submission_to_queue(submission)
         return [
             self.__build_submission_with_metadata_only_response(submission)
-            for submission in enqueued_submissions
+            for submission in pending_submissions
         ]
