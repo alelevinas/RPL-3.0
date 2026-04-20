@@ -21,7 +21,10 @@ class RPLFilesService:
         rplfile = self.rpl_files_repo.get_by_id(rplfile_id)
         if not rplfile:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-        if rplfile.file_type != aux_models.RPLFileType.GZIP:
+        is_gzip = (
+            rplfile.data and rplfile.data[:2] == b'\x1f\x8b'
+        )
+        if not is_gzip:
             return {rplfile.file_name: rplfile.data.decode()}
         return tar_utils.extract_tar_gz_to_dict_of_files(rplfile.data)
 
