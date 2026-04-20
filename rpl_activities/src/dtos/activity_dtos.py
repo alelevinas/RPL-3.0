@@ -65,6 +65,7 @@ class ActivityUpdateRequestDTO(BaseModel):
     language: Optional[aux_models.Language] = None
     compilation_flags: Optional[str] = None
     active: Optional[bool] = None
+    is_io_tested: Optional[bool] = None
     points: Optional[int] = None
     starting_files: Optional[List[UploadFile]] = File(None)
     model_config = {"extra": "forbid"}
