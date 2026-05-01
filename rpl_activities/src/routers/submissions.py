@@ -1,5 +1,6 @@
 from typing import List, Optional, Union
 from fastapi import APIRouter, Form, status
+from fastapi.responses import StreamingResponse
 from rpl_activities.src.deps.auth import (
     CurrentCourseUserDependency,
     CurrentMainUserDependency,
@@ -84,6 +85,20 @@ def get_all_final_submissions_from_activity(
 ):
     return SubmissionsService(db).get_all_final_submissions_from_activity(
         course_id, activity_id, current_course_user
+    )
+
+
+@router.get("/courses/{course_id}/submissions/{submission_id}/stream")
+def stream_submission_status(
+    course_id: int,
+    submission_id: int,
+    current_course_user: CurrentCourseUserDependency,
+    db: DBSessionDependency,
+):
+    return StreamingResponse(
+        SubmissionsService(db).stream_submission_status(submission_id, current_course_user),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
