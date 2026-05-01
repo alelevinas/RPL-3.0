@@ -1,5 +1,7 @@
+import json
 import logging
-from typing import Union
+import time
+from typing import Generator, Union
 from fastapi import HTTPException, status
 from rpl_activities.src.deps.auth import CurrentCourseUser, CurrentMainUser, StudentCourseUser
 from rpl_activities.src.deps.mq_sender import MQSender
@@ -300,6 +302,39 @@ class SubmissionsService:
                 if hints:
                     final_hint = " ".join(hints)
                     self.submissions_repo.update_submission_ai_hint(submission, final_hint)
+
+    def stream_submission_status(
+        self, submission_id: int, current_course_user: CurrentCourseUser
+    ) -> Generator[str, None, None]:
+        self.activities_service.verify_permission_to_submit(current_course_user)
+
+        TERMINAL = {
+            aux_models.SubmissionStatus.SUCCESS,
+            aux_models.SubmissionStatus.FAILURE,
+            aux_models.SubmissionStatus.BUILD_ERROR,
+            aux_models.SubmissionStatus.RUNTIME_ERROR,
+            aux_models.SubmissionStatus.TIME_OUT,
+        }
+
+        def generate() -> Generator[str, None, None]:
+            last_status = None
+            for _ in range(180):  # 90s max at 0.5s intervals
+                submission = self.submissions_repo.get_by_id(submission_id)
+                if not submission:
+                    yield f"event: error\ndata: {json.dumps({'detail': 'Submission not found'})}\n\n"
+                    return
+                current_status = submission.status
+                if current_status != last_status:
+                    last_status = current_status
+                    yield f"event: status\ndata: {json.dumps({'status': current_status})}\n\n"
+                if current_status in TERMINAL:
+                    result = self.__build_submission_result_response(submission)
+                    yield f"event: result\ndata: {result.model_dump_json()}\n\n"
+                    return
+                time.sleep(0.5)
+            yield f"event: timeout\ndata: {json.dumps({'detail': 'Timed out waiting for result'})}\n\n"
+
+        return generate()
 
     def reprocess_all_pending_submissions(
         self, current_user: CurrentMainUser
